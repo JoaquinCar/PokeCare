@@ -54,20 +54,25 @@ export class AuthManager {
   ): Promise<{ success: boolean; error?: string }> {
     await this.initializeAuth()
 
+    // --- START: Added explicit validation before Supabase call ---
+    if (!email || email.trim() === "") {
+      return { success: false, error: "Email is required." }
+    }
+    if (!password || password.trim() === "") {
+      return { success: false, error: "Password is required." }
+    }
+    if (password.length < 6) {
+      return { success: false, error: "Password must be at least 6 characters." }
+    }
+    if (!username || username.trim() === "") {
+      return { success: false, error: "Username is required." }
+    }
+    if (username.trim().length < 3) {
+      return { success: false, error: "Username must be at least 3 characters." }
+    }
+    // --- END: Added explicit validation before Supabase call ---
+
     try {
-      // Validate inputs
-      if (!email || !password || !username) {
-        return { success: false, error: "All fields are required" }
-      }
-
-      if (password.length < 6) {
-        return { success: false, error: "Password must be at least 6 characters" }
-      }
-
-      if (username.length < 3) {
-        return { success: false, error: "Username must be at least 3 characters" }
-      }
-
       // Get the current URL for redirect
       const redirectUrl =
         typeof window !== "undefined"
@@ -133,12 +138,16 @@ export class AuthManager {
   public async signIn(email: string, password: string): Promise<{ success: boolean; error?: string }> {
     await this.initializeAuth()
 
-    try {
-      // Validate inputs
-      if (!email || !password) {
-        return { success: false, error: "Email and password are required" }
-      }
+    // --- START: Added explicit validation before Supabase call ---
+    if (!email || email.trim() === "") {
+      return { success: false, error: "Email is required." }
+    }
+    if (!password || password.trim() === "") {
+      return { success: false, error: "Password is required." }
+    }
+    // --- END: Added explicit validation before Supabase call ---
 
+    try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
