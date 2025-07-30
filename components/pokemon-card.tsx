@@ -1,30 +1,8 @@
 "use client"
 
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Heart, Star } from "lucide-react"
-
-const typeColors: { [key: string]: string } = {
-  normal: "#A8A878",
-  fire: "#F08030",
-  water: "#6890F0",
-  electric: "#F8D030",
-  grass: "#78C850",
-  ice: "#98D8D8",
-  fighting: "#C03028",
-  poison: "#A040A0",
-  ground: "#E0C068",
-  flying: "#A890F0",
-  psychic: "#F85888",
-  bug: "#A8B820",
-  rock: "#B8A038",
-  ghost: "#705898",
-  dragon: "#7038F8",
-  dark: "#705848",
-  steel: "#B8B8D0",
-  fairy: "#EE99AC",
-}
+import { useState } from "react"
+import { Heart, Loader2 } from "lucide-react"
+import { pokemonTheme, pokemonTypeColors } from "@/lib/pokemon-theme"
 
 interface PokemonCardProps {
   pokemon: any
@@ -41,26 +19,29 @@ export function PokemonCard({
   showAdoptButton = true,
   className = "",
 }: PokemonCardProps) {
+  const [isAdopting, setIsAdopting] = useState(false)
+
+  const handleAdopt = async () => {
+    if (isAdopting || isAdopted || !onAdopt) return
+
+    setIsAdopting(true)
+    await onAdopt(pokemon)
+    setIsAdopting(false)
+  }
+
   return (
-    <Card
-      className={`relative overflow-hidden hover:scale-105 transition-all duration-300 bg-white shadow-lg border-2 border-gray-200 hover:border-blue-300 hover:shadow-xl ${className}`}
+    <div
+      className={`relative overflow-hidden transform hover:scale-105 active:scale-95 transition-all duration-300 bg-white shadow-xl border-2 border-gray-800 hover:border-blue-500 hover:shadow-2xl rounded-lg ${className}`}
     >
       {/* Pokemon Number Badge */}
-      <div className="absolute top-2 right-2 bg-gray-800 text-white text-xs px-2 py-1 rounded-full font-bold z-10">
+      <div className="absolute top-2 right-2 bg-gray-800 text-white text-xs px-2 py-1 rounded-lg font-bold z-10 border border-gray-600">
         #{pokemon.id.toString().padStart(3, "0")}
       </div>
 
-      {/* Rarity Stars */}
-      {pokemon.id <= 151 && (
-        <div className="absolute top-2 left-2 flex z-10">
-          <Star className="w-4 h-4 text-yellow-400 fill-current" />
-        </div>
-      )}
-
-      <CardContent className="p-4">
+      <div className="p-4">
         {/* Pokemon Image */}
         <div className="relative mb-4">
-          <div className="w-24 h-24 mx-auto bg-gradient-to-br from-blue-50 to-purple-50 rounded-full flex items-center justify-center shadow-inner">
+          <div className="w-24 h-24 mx-auto bg-gradient-to-br from-blue-50 to-purple-50 rounded-full flex items-center justify-center shadow-inner border-2 border-gray-300">
             <img
               src={pokemon.animatedSprite || pokemon.sprites?.front_default || "/placeholder.svg?height=80&width=80"}
               alt={pokemon.name}
@@ -71,37 +52,53 @@ export function PokemonCard({
         </div>
 
         {/* Pokemon Name */}
-        <h3 className="text-lg font-bold text-center capitalize mb-3 text-gray-800">{pokemon.name}</h3>
+        <h3 className={`${pokemonTheme.typography.heading} text-lg text-center capitalize mb-3 text-gray-800`}>
+          {pokemon.name}
+        </h3>
 
         {/* Pokemon Types */}
         <div className="flex flex-wrap gap-1 justify-center mb-4">
           {pokemon.types?.map((type: any) => (
-            <Badge
+            <div
               key={type.type.name}
-              className="text-white text-xs font-semibold px-2 py-1 rounded-full"
-              style={{ backgroundColor: typeColors[type.type.name] || "#68A090" }}
+              className="text-white text-xs font-bold px-2 py-1 rounded-lg border-2 border-gray-800"
+              style={{ backgroundColor: pokemonTypeColors[type.type.name] || "#68A090" }}
             >
               {type.type.name.toUpperCase()}
-            </Badge>
+            </div>
           ))}
         </div>
 
         {/* Adopt Button */}
         {showAdoptButton && (
-          <Button
-            onClick={() => onAdopt?.(pokemon)}
-            disabled={isAdopted}
-            className={`w-full rounded-full font-bold transition-all duration-200 ${
+          <button
+            onClick={handleAdopt}
+            disabled={isAdopted || isAdopting}
+            className={`w-full rounded-lg font-bold transition-all duration-300 active:scale-90 hover:scale-105 border-2 py-2 px-4 ${
               isAdopted
-                ? "bg-green-500 hover:bg-green-600 text-white"
-                : "bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white shadow-lg hover:shadow-xl"
-            }`}
+                ? "bg-gradient-to-b from-green-400 to-green-600 hover:from-green-500 hover:to-green-700 border-green-800 text-white"
+                : "bg-gradient-to-b from-blue-400 to-blue-600 hover:from-blue-500 hover:to-blue-700 border-blue-800 text-white shadow-lg hover:shadow-xl"
+            } ${pokemonTheme.typography.button} disabled:opacity-50 disabled:cursor-not-allowed`}
           >
-            <Heart className="w-4 h-4 mr-2" />
-            {isAdopted ? "In Team" : "Adopt"}
-          </Button>
+            {isAdopting ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin inline" />
+                Adding...
+              </>
+            ) : isAdopted ? (
+              <>
+                <Heart className="w-4 h-4 mr-2 inline" />
+                In Team
+              </>
+            ) : (
+              <>
+                <Heart className="w-4 h-4 mr-2 inline" />
+                Adopt
+              </>
+            )}
+          </button>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }

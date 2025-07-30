@@ -32,6 +32,11 @@ export class AuthManager {
         this.currentUser = null
       } else {
         this.currentUser = session?.user || null
+
+        // Ensure user profile exists when initializing
+        if (this.currentUser) {
+          await this.ensureUserProfile(this.currentUser, this.currentUser.email || "")
+        }
       }
 
       this.initialized = true
@@ -100,11 +105,8 @@ export class AuthManager {
       }
 
       if (data.user) {
-        // Only try to create profile if user is confirmed
-        if (data.user.email_confirmed_at) {
-          await this.ensureUserProfile(data.user, email, username.trim())
-        }
-
+        // Always try to create profile for new users
+        await this.ensureUserProfile(data.user, email, username.trim())
         this.currentUser = data.user
         return { success: true }
       }
@@ -157,12 +159,12 @@ export class AuthManager {
         return { success: false, error: error.message || "Sign in failed. Please try again." }
       }
 
-      // Create user profile if it doesn't exist
+      // Always ensure user profile exists on sign in
       if (data.user) {
         await this.ensureUserProfile(data.user, email)
+        this.currentUser = data.user
       }
 
-      this.currentUser = data.user
       return { success: true }
     } catch (error: any) {
       console.error("Sign in error:", error)
@@ -213,20 +215,45 @@ export class AuthManager {
         // Create profile with username from metadata, parameter, or email
         const finalUsername = username || user.user_metadata?.username || email.split("@")[0]
 
-        const { error } = await supabase.from("users").insert({
-          id: user.id,
-          email,
-          username: finalUsername,
-        })
+        console.log("Creating user profile for:", user.id, email, finalUsername)
+
+        const { data: insertedUser, error } = await supabase
+          .from("users")
+          .insert({
+            id: user.id,
+            email,
+            username: finalUsername,
+          })
+          .select()
+          .single()
 
         if (error) {
           console.error("Error creating user profile:", error)
-          // Don't throw error, just log it - user can still use the app
+
+          // Handle duplicate username error
+          if (error.code === "23505" && error.message.includes("username")) {
+            // Try with a unique username
+            const uniqueUsername = `${finalUsername}_${Date.now()}`
+            const { error: retryError } = await supabase.from("users").insert({
+              id: user.id,
+              email,
+              username: uniqueUsername,
+            })
+
+            if (retryError) {
+              console.error("Error creating user profile with unique username:", retryError)
+            } else {
+              console.log("User profile created with unique username:", uniqueUsername)
+            }
+          }
+        } else {
+          console.log("User profile created successfully:", insertedUser)
         }
+      } else {
+        console.log("User profile already exists:", existingProfile.id)
       }
     } catch (error) {
       console.error("Error ensuring user profile:", error)
-      // Don't throw error, just log it - user can still use the app
     }
   }
 
@@ -271,7 +298,8 @@ export class AuthManager {
 
       if (error) {
         if (error.code === "PGRST116") {
-          // No profile found, return basic info
+          // No profile found, create it and return basic info
+          await this.ensureUserProfile(this.currentUser, this.currentUser.email || "")
           return {
             id: this.currentUser.id,
             email: this.currentUser.email,
@@ -299,7 +327,7 @@ export class AuthManager {
     return supabase.auth.onAuthStateChange(async (event, session) => {
       this.currentUser = session?.user || null
 
-      // Handle email confirmation
+      // Handle email confirmation and ensure profile exists
       if (event === "SIGNED_IN" && session?.user) {
         await this.ensureUserProfile(session.user, session.user.email || "")
       }

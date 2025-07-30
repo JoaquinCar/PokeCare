@@ -1,135 +1,161 @@
-// Controlador para interactuar con la PokéAPI
+// Enhanced Pokemon API with caching and optimization
+import { PokemonAssetOptimizer } from "./pokemon-asset-optimizer"
+
 export class PokemonAPI {
   private static readonly BASE_URL = "https://pokeapi.co/api/v2"
+  private static cache = new Map<string, any>()
+  private static readonly CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
 
-  public static async getPokemonByGeneration(start: number, end: number): Promise<any[]> {
-    const promises = []
+  private static getCacheKey(endpoint: string): string {
+    return `pokemon_${endpoint}`
+  }
 
-    for (let i = start; i <= end; i++) {
-      promises.push(this.getPokemon(i))
+  private static isValidCache(timestamp: number): boolean {
+    return Date.now() - timestamp < this.CACHE_DURATION
+  }
+
+  private static async fetchWithCache(url: string): Promise<any> {
+    const cacheKey = this.getCacheKey(url)
+    const cached = this.cache.get(cacheKey)
+
+    if (cached && this.isValidCache(cached.timestamp)) {
+      return cached.data
     }
 
     try {
-      const results = await Promise.all(promises)
-      return results.filter((pokemon) => pokemon !== null)
+      const response = await fetch(url)
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      const data = await response.json()
+
+      // Cache the result
+      this.cache.set(cacheKey, {
+        data,
+        timestamp: Date.now(),
+      })
+
+      return data
     } catch (error) {
-      console.error("Error fetching Pokemon:", error)
-      return []
+      console.error(`Error fetching ${url}:`, error)
+      return null
     }
+  }
+
+  public static async getPokemonByGeneration(start: number, end: number): Promise<any[]> {
+    const batchSize = 20 // Process in smaller batches for better performance
+    const results: any[] = []
+
+    for (let i = start; i <= end; i += batchSize) {
+      const batchEnd = Math.min(i + batchSize - 1, end)
+      const batchPromises = []
+
+      for (let j = i; j <= batchEnd; j++) {
+        batchPromises.push(this.getPokemon(j))
+      }
+
+      try {
+        const batchResults = await Promise.all(batchPromises)
+        results.push(...batchResults.filter((pokemon) => pokemon !== null))
+      } catch (error) {
+        console.error(`Error fetching Pokemon batch ${i}-${batchEnd}:`, error)
+      }
+    }
+
+    return results
   }
 
   public static async getPokemon(id: number | string): Promise<any | null> {
-    try {
-      const response = await fetch(`${this.BASE_URL}/pokemon/${id}`)
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-      const pokemon = await response.json()
+    const url = `${this.BASE_URL}/pokemon/${id}`
+    const pokemon = await this.fetchWithCache(url)
 
-      // Priorizar GIFs animados
-      if (pokemon.sprites?.versions?.["generation-v"]?.["black-white"]?.animated?.front_default) {
-        pokemon.animatedSprite = pokemon.sprites.versions["generation-v"]["black-white"].animated.front_default
-      } else if (pokemon.sprites?.front_default) {
-        pokemon.animatedSprite = pokemon.sprites.front_default
-      }
+    if (!pokemon) return null
 
-      return pokemon
-    } catch (error) {
-      console.error(`Error fetching Pokemon ${id}:`, error)
-      return null
+    // Use optimized sprite URLs
+    const assetOptimizer = PokemonAssetOptimizer.getInstance()
+
+    // Prioritize animated sprites for better visual experience
+    if (pokemon.sprites?.versions?.["generation-v"]?.["black-white"]?.animated?.front_default) {
+      pokemon.animatedSprite = pokemon.sprites.versions["generation-v"]["black-white"].animated.front_default
+    } else if (pokemon.sprites?.front_default) {
+      pokemon.animatedSprite = pokemon.sprites.front_default
     }
+
+    // Preload the sprite for better performance
+    if (pokemon.animatedSprite) {
+      assetOptimizer.preloadImage(pokemon.animatedSprite).catch(() => {
+        // Fallback to static sprite if animated fails
+        if (pokemon.sprites?.front_default) {
+          pokemon.animatedSprite = pokemon.sprites.front_default
+        }
+      })
+    }
+
+    return pokemon
   }
 
   public static async getPokemonSpecies(id: number): Promise<any | null> {
-    try {
-      const response = await fetch(`${this.BASE_URL}/pokemon-species/${id}`)
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-      return await response.json()
-    } catch (error) {
-      console.error(`Error fetching Pokemon species ${id}:`, error)
-      return null
-    }
+    const url = `${this.BASE_URL}/pokemon-species/${id}`
+    return await this.fetchWithCache(url)
   }
 
   public static async getEvolutionChain(pokemonId: number): Promise<any | null> {
     try {
-      // Primero obtenemos la especie para conseguir la URL de evolución
-      const speciesResponse = await fetch(`${this.BASE_URL}/pokemon-species/${pokemonId}`)
-      if (!speciesResponse.ok) return null
+      const speciesData = await this.getPokemonSpecies(pokemonId)
+      if (!speciesData?.evolution_chain?.url) return null
 
-      const speciesData = await speciesResponse.json()
-
-      // Luego obtenemos la cadena evolutiva
-      const evolutionResponse = await fetch(speciesData.evolution_chain.url)
-      if (!evolutionResponse.ok) return null
-
-      return await evolutionResponse.json()
+      return await this.fetchWithCache(speciesData.evolution_chain.url)
     } catch (error) {
       console.error(`Error fetching evolution chain for Pokemon ${pokemonId}:`, error)
       return null
     }
   }
 
-  public static async getBasePokemonOnly(start: number, end: number): Promise<any[]> {
-    const allPokemon = await this.getPokemonByGeneration(start, end)
-    const basePokemon = []
-
-    for (const pokemon of allPokemon) {
-      try {
-        const speciesResponse = await fetch(`${this.BASE_URL}/pokemon-species/${pokemon.id}`)
-        if (speciesResponse.ok) {
-          const speciesData = await speciesResponse.json()
-          // Solo incluir si no evoluciona de otro Pokémon
-          if (!speciesData.evolves_from_species) {
-            basePokemon.push(pokemon)
-          }
-        }
-      } catch (error) {
-        console.error(`Error checking if Pokemon ${pokemon.id} is base form:`, error)
-      }
-    }
-
-    return basePokemon
-  }
-
-  // Optimized version with parallel requests
   public static async getBasePokemonOnlyOptimized(start: number, end: number): Promise<any[]> {
     try {
-      // First, get all Pokemon data in parallel
-      const pokemonPromises = []
-      for (let i = start; i <= end; i++) {
-        pokemonPromises.push(this.getPokemon(i))
-      }
+      // Get Pokemon data in parallel batches
+      const pokemonData = await this.getPokemonByGeneration(start, end)
 
-      const allPokemon = await Promise.all(pokemonPromises)
-      const validPokemon = allPokemon.filter((p) => p !== null)
-
-      // Then, get all species data in parallel
-      const speciesPromises = validPokemon.map((pokemon) =>
-        fetch(`${this.BASE_URL}/pokemon-species/${pokemon.id}`)
-          .then((response) => (response.ok ? response.json() : null))
-          .catch(() => null),
+      // Get species data in parallel
+      const speciesPromises = pokemonData.map((pokemon) =>
+        this.getPokemonSpecies(pokemon.id)
+          .then((species) => ({ pokemon, species }))
+          .catch(() => ({ pokemon, species: null })),
       )
 
-      const speciesData = await Promise.all(speciesPromises)
+      const pokemonWithSpecies = await Promise.all(speciesPromises)
 
       // Filter base Pokemon
-      const basePokemon = []
-      for (let i = 0; i < validPokemon.length; i++) {
-        const pokemon = validPokemon[i]
-        const species = speciesData[i]
-
-        if (species && !species.evolves_from_species) {
-          basePokemon.push(pokemon)
-        }
-      }
-
-      return basePokemon
+      return pokemonWithSpecies
+        .filter(({ species }) => species && !species.evolves_from_species)
+        .map(({ pokemon }) => pokemon)
     } catch (error) {
       console.error("Error in optimized base Pokemon fetch:", error)
       return []
     }
+  }
+
+  // Clear cache method for memory management
+  public static clearCache(): void {
+    this.cache.clear()
+  }
+
+  // Get cache size for debugging
+  public static getCacheSize(): number {
+    return this.cache.size
+  }
+
+  public static async preloadGenerationAssets(start: number, end: number): Promise<void> {
+    const assetOptimizer = PokemonAssetOptimizer.getInstance()
+    const preloadPromises = []
+
+    for (let i = start; i <= Math.min(start + 50, end); i++) {
+      const animatedUrl = assetOptimizer.getOptimizedSpriteUrl(i, true)
+      const staticUrl = assetOptimizer.getOptimizedSpriteUrl(i, false)
+
+      preloadPromises.push(assetOptimizer.preloadImage(animatedUrl).catch(() => assetOptimizer.preloadImage(staticUrl)))
+    }
+
+    await Promise.allSettled(preloadPromises)
   }
 }

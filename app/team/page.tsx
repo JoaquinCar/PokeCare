@@ -2,13 +2,12 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
-import { ArrowLeft, Heart, Zap, Apple, Trash2, Star, Users } from "lucide-react"
+import { ArrowLeft, Heart, Zap, Apple, Trash2, Star, Users, Shield, AlertCircle } from "lucide-react"
 import { GameStateManager } from "@/lib/game-state-manager"
 import { AuthManager } from "@/lib/auth"
+import { Loader2 } from "lucide-react" // Import Loader2
+import { ClassicButton, ClassicCard, ClassicHeader } from "@/components/classic-pokemon-ui"
+import { pokemonTheme, pokemonTypeColors } from "@/lib/pokemon-theme"
 
 const typeColors: { [key: string]: string } = {
   normal: "#A8A878",
@@ -35,6 +34,8 @@ export default function TeamPage() {
   const router = useRouter()
   const [adoptedTeam, setAdoptedTeam] = useState<any[]>([])
   const [user, setUser] = useState<any>(null)
+  const [releasingPokemon, setReleasingPokemon] = useState<string | null>(null)
+  const [releaseError, setReleaseError] = useState<string | null>(null) // New state for error message
 
   useEffect(() => {
     const authManager = AuthManager.getInstance()
@@ -50,6 +51,7 @@ export default function TeamPage() {
     const gameState = GameStateManager.getInstance()
     const team = gameState.getAdoptedTeam()
 
+    // If team is empty on initial load, redirect to dashboard
     if (team.length === 0) {
       router.push("/dashboard")
       return
@@ -60,6 +62,11 @@ export default function TeamPage() {
     const unsubscribe = gameState.subscribe(() => {
       const newTeam = gameState.getAdoptedTeam()
       setAdoptedTeam(newTeam)
+      // If the team becomes empty after a release, redirect to dashboard
+      if (newTeam.length === 0) {
+        console.log("[TeamPage] Team is now empty, redirecting to dashboard.")
+        router.push("/dashboard")
+      }
     })
 
     return unsubscribe
@@ -74,9 +81,28 @@ export default function TeamPage() {
   }
 
   const handleRelease = async (pokemonTeamId: string) => {
+    setReleaseError(null) // Clear previous errors
+    console.log(`[TeamPage] Attempting to release Pokemon with team ID: ${pokemonTeamId}`) // Log the ID being passed
+
     if (confirm("Are you sure you want to release this Pokémon? This action cannot be undone.")) {
+      setReleasingPokemon(pokemonTeamId)
       const gameState = GameStateManager.getInstance()
-      await gameState.releasePokemon(pokemonTeamId)
+      try {
+        const result = await gameState.releasePokemon(pokemonTeamId)
+        if (!result.success) {
+          setReleaseError(result.error || "Failed to release Pokémon. Please try again.")
+          console.error("[TeamPage] Release failed:", result.error)
+        } else {
+          console.log("[TeamPage] Pokemon successfully released.")
+          // The GameStateManager's subscribe will handle updating the adoptedTeam state
+          // and the useEffect will handle the redirect if the team becomes empty.
+        }
+      } catch (error: any) {
+        console.error("[TeamPage] Error in handleRelease:", error)
+        setReleaseError(error.message || "An unexpected error occurred while releasing Pokémon.")
+      } finally {
+        setReleasingPokemon(null) // Always clear the spinner
+      }
     }
   }
 
@@ -89,74 +115,74 @@ export default function TeamPage() {
   if (!user || adoptedTeam.length === 0) return null
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-100 via-purple-50 to-pink-100 relative">
-      {/* Pokémon GO style background */}
-      <div className="fixed inset-0 opacity-10 pointer-events-none">
-        <div className="absolute top-20 left-20 w-48 h-48 bg-yellow-300 rounded-full animate-pulse"></div>
-        <div className="absolute top-60 right-32 w-36 h-36 bg-pink-300 rounded-full animate-bounce"></div>
-        <div className="absolute bottom-40 left-1/4 w-52 h-52 bg-blue-300 rounded-full animate-pulse"></div>
-        <div className="absolute bottom-20 right-1/4 w-40 h-40 bg-green-300 rounded-full animate-bounce"></div>
+    <div className={`min-h-screen bg-gradient-to-br ${pokemonTheme.colors.backgrounds.primary} relative`}>
+      {/* Classic Pokemon background */}
+      <div className="fixed inset-0 opacity-15 pointer-events-none">
+        <div className="absolute top-20 left-20 w-40 h-40 bg-yellow-400 rounded-full border-4 border-yellow-600 animate-pulse"></div>
+        <div className="absolute top-60 right-32 w-32 h-32 bg-red-400 rounded-full border-4 border-red-600 animate-bounce"></div>
+        <div className="absolute bottom-40 left-1/4 w-48 h-48 bg-green-400 rounded-full border-4 border-green-600 animate-pulse"></div>
+        <div className="absolute bottom-20 right-1/4 w-36 h-36 bg-purple-400 rounded-full border-4 border-purple-600 animate-bounce"></div>
       </div>
 
-      <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200 shadow-sm sticky top-0 z-40">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button
-                onClick={handleBack}
-                variant="outline"
-                className="rounded-full border-2 border-gray-300 hover:border-blue-400 bg-white shadow-md"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back
-              </Button>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-800">Your Pokémon Team</h1>
-                <p className="text-gray-600">Manage and care for your Pokémon</p>
+      <ClassicHeader
+        title="Your Pokémon Team"
+        subtitle="Manage and care for your Pokémon companions"
+        variant="primary"
+        actions={
+          <div className="flex items-center gap-4">
+            <div className="bg-white rounded-lg px-4 py-2 border-2 border-blue-900 shadow-lg">
+              <div className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-blue-600" />
+                <span className={`${pokemonTheme.typography.button} text-blue-800`}>Team: {adoptedTeam.length}/6</span>
               </div>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 bg-white rounded-full px-4 py-2 shadow-md border-2 border-gray-200">
-                <Users className="w-5 h-5 text-blue-500" />
-                <span className="font-bold text-gray-700">Team: {adoptedTeam.length}/6</span>
-              </div>
-              <Button
-                onClick={handleCareClick}
-                className="bg-pink-500 hover:bg-pink-600 text-white rounded-full shadow-md"
-              >
-                <Heart className="w-4 h-4 mr-2" />
-                Care
-              </Button>
-            </div>
+
+            <ClassicButton onClick={handleBack} variant="accent" size="md">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </ClassicButton>
+
+            <ClassicButton onClick={handleCareClick} variant="secondary" size="md">
+              <Heart className="w-4 h-4 mr-2" />
+              Care
+            </ClassicButton>
           </div>
-        </div>
-      </header>
+        }
+      />
 
       <main className="container mx-auto px-4 py-8 relative z-10">
         <div className="max-w-6xl mx-auto">
+          {releaseError && (
+            <div className="mb-4 p-3 bg-red-100 border-2 border-red-400 text-red-700 rounded-lg flex items-center gap-2">
+              <AlertCircle className="w-5 h-5" />
+              <p className="text-sm font-medium">{releaseError}</p>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {adoptedTeam.map((pokemon) => (
-              <Card
-                key={pokemon.id}
-                className="bg-white/90 backdrop-blur-sm shadow-xl border-2 border-gray-200 hover:border-blue-300 transition-all duration-200 hover:shadow-2xl"
-              >
-                <CardHeader className="text-center relative">
+              <ClassicCard key={pokemon.id} variant="primary" className="hover:shadow-2xl transition-all duration-300">
+                <div className="text-center relative">
                   <div className="absolute top-2 right-2">
-                    <Button
+                    <button
                       onClick={() => handleRelease(pokemon.id)}
-                      variant="outline"
-                      size="sm"
-                      className="text-red-500 border-red-300 hover:bg-red-50 rounded-full"
+                      disabled={releasingPokemon === pokemon.id}
+                      className="text-red-500 border-2 border-red-400 hover:bg-red-50 rounded-lg p-1 active:scale-95 transition-all duration-200 disabled:opacity-50"
                     >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                      {releasingPokemon === pokemon.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-4 h-4" />
+                      )}
+                    </button>
                   </div>
-                  <div className="relative">
+
+                  <div className="relative mb-4">
                     <div
-                      className={`w-32 h-32 mx-auto rounded-full flex items-center justify-center mb-4 ${
+                      className={`w-32 h-32 mx-auto rounded-full flex items-center justify-center border-4 ${
                         pokemon.is_mega_evolved
-                          ? "bg-gradient-to-br from-purple-200 to-pink-200 shadow-2xl border-4 border-purple-400"
-                          : "bg-gradient-to-br from-blue-100 to-purple-100 shadow-lg"
+                          ? "bg-gradient-to-br from-purple-200 to-pink-200 border-purple-600 shadow-2xl"
+                          : "bg-gradient-to-br from-blue-100 to-purple-100 border-blue-600 shadow-lg"
                       }`}
                     >
                       <img
@@ -164,7 +190,6 @@ export default function TeamPage() {
                           pokemon.pokemon_data?.animatedSprite ||
                           pokemon.pokemon_data?.sprites?.front_default ||
                           "/placeholder.svg?height=100&width=100" ||
-                          "/placeholder.svg" ||
                           "/placeholder.svg"
                         }
                         alt={pokemon.pokemon_name}
@@ -172,27 +197,32 @@ export default function TeamPage() {
                       />
                     </div>
                     {pokemon.is_mega_evolved && (
-                      <div className="absolute -top-2 -left-2 animate-pulse">
-                        <div className="bg-purple-500 text-white px-2 py-1 rounded-full text-xs font-bold">MEGA</div>
+                      <div className="absolute -top-2 -left-2">
+                        <div className="bg-purple-600 text-white px-2 py-1 rounded-lg text-xs font-bold border-2 border-purple-800">
+                          MEGA
+                        </div>
                       </div>
                     )}
                   </div>
-                  <CardTitle className="text-xl capitalize text-gray-800">{pokemon.pokemon_name}</CardTitle>
-                  <p className="text-gray-600">#{pokemon.pokemon_id.toString().padStart(3, "0")}</p>
-                  <div className="flex justify-center gap-2 mt-2">
+
+                  <h3 className={`${pokemonTheme.typography.heading} text-xl capitalize text-gray-800 mb-2`}>
+                    {pokemon.pokemon_name}
+                  </h3>
+                  <p className="text-gray-600 mb-3">#{pokemon.pokemon_id.toString().padStart(3, "0")}</p>
+
+                  <div className="flex justify-center gap-2 mb-4">
                     {pokemon.pokemon_data?.types?.map((type: any) => (
-                      <Badge
+                      <div
                         key={type.type.name}
-                        className="text-white text-sm font-semibold"
-                        style={{ backgroundColor: typeColors[type.type.name] || "#68A090" }}
+                        className="text-white text-sm font-bold px-2 py-1 rounded-lg border-2 border-gray-800"
+                        style={{ backgroundColor: pokemonTypeColors[type.type.name] || "#68A090" }}
                       >
-                        {type.type.name}
-                      </Badge>
+                        {type.type.name.toUpperCase()}
+                      </div>
                     ))}
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Stats */}
+
+                  {/* Stats Display */}
                   <div className="space-y-3">
                     <div>
                       <div className="flex justify-between items-center mb-1">
@@ -202,18 +232,28 @@ export default function TeamPage() {
                         </span>
                         <span className="text-sm font-bold">{pokemon.happiness}%</span>
                       </div>
-                      <Progress value={pokemon.happiness} className="h-2" />
+                      <div className="bg-gray-300 rounded-full h-2 border border-gray-400 overflow-hidden">
+                        <div
+                          className="h-full bg-red-500 transition-all duration-500"
+                          style={{ width: `${pokemon.happiness}%` }}
+                        ></div>
+                      </div>
                     </div>
 
                     <div>
                       <div className="flex justify-between items-center mb-1">
                         <span className="text-sm font-medium flex items-center gap-1">
-                          <span className="text-green-500">💚</span>
+                          <Shield className="w-4 h-4 text-green-500" />
                           Health
                         </span>
                         <span className="text-sm font-bold">{pokemon.health}%</span>
                       </div>
-                      <Progress value={pokemon.health} className="h-2" />
+                      <div className="bg-gray-300 rounded-full h-2 border border-gray-400 overflow-hidden">
+                        <div
+                          className="h-full bg-green-500 transition-all duration-500"
+                          style={{ width: `${pokemon.health}%` }}
+                        ></div>
+                      </div>
                     </div>
 
                     <div>
@@ -224,55 +264,71 @@ export default function TeamPage() {
                         </span>
                         <span className="text-sm font-bold">{pokemon.energy}%</span>
                       </div>
-                      <Progress value={pokemon.energy} className="h-2" />
+                      <div className="bg-gray-300 rounded-full h-2 border border-gray-400 overflow-hidden">
+                        <div
+                          className="h-full bg-yellow-500 transition-all duration-500"
+                          style={{ width: `${pokemon.energy}%` }}
+                        ></div>
+                      </div>
                     </div>
 
                     <div>
                       <div className="flex justify-between items-center mb-1">
                         <span className="text-sm font-medium flex items-center gap-1">
-                          <Apple className="w-4 h-4 text-green-600" />
+                          <Apple className="w-4 h-4 text-blue-500" />
                           Hunger
                         </span>
                         <span className="text-sm font-bold">{pokemon.hunger}%</span>
                       </div>
-                      <Progress value={pokemon.hunger} className="h-2" />
+                      <div className="bg-gray-300 rounded-full h-2 border border-gray-400 overflow-hidden">
+                        <div
+                          className="h-full bg-blue-500 transition-all duration-500"
+                          style={{ width: `${pokemon.hunger}%` }}
+                        ></div>
+                      </div>
                     </div>
                   </div>
 
                   {/* Evolution Progress */}
-                  <div className="bg-gradient-to-r from-purple-100 to-pink-100 p-3 rounded-lg">
+                  <div className="mt-4 bg-gradient-to-r from-purple-100 to-pink-100 border-2 border-purple-400 rounded-lg p-3">
                     <div className="flex justify-between items-center mb-2">
                       <span className="text-sm font-medium flex items-center gap-1">
-                        <Star className="w-4 h-4 text-purple-500" />
-                        Evolution Progress
+                        <Star className="w-4 h-4 text-purple-600" />
+                        Evolution
                       </span>
                       <span className="text-sm font-bold">
                         {GameStateManager.getInstance().getEvolutionProgress(pokemon.id).toFixed(1)}%
                       </span>
                     </div>
-                    <Progress value={GameStateManager.getInstance().getEvolutionProgress(pokemon.id)} className="h-2" />
-                    <p className="text-xs text-gray-600 mt-1">Activity Points: {pokemon.activity_points}</p>
+                    <div className="bg-gray-300 rounded-full h-2 border border-gray-400 overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-500"
+                        style={{ width: `${GameStateManager.getInstance().getEvolutionProgress(pokemon.id)}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-xs text-purple-700 mt-1 font-medium">Points: {pokemon.activity_points}</p>
                   </div>
 
                   {/* Stats Summary */}
-                  <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
-                    <div>Total Actions: {pokemon.total_actions}</div>
-                    <div>Level: {Math.floor(pokemon.activity_points / 50) + 1}</div>
+                  <div className="grid grid-cols-2 gap-2 mt-4 text-xs text-gray-600">
+                    <div className="bg-gray-100 rounded p-2 border border-gray-300">
+                      <span className="font-medium">Actions: {pokemon.total_actions}</span>
+                    </div>
+                    <div className="bg-gray-100 rounded p-2 border border-gray-300">
+                      <span className="font-medium">Level: {Math.floor(pokemon.activity_points / 50) + 1}</span>
+                    </div>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+              </ClassicCard>
             ))}
           </div>
 
           {/* Care Button */}
           <div className="mt-8 text-center">
-            <Button
-              onClick={handleCareClick}
-              className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white rounded-full shadow-lg text-lg px-8 py-3"
-            >
+            <ClassicButton onClick={handleCareClick} variant="secondary" size="lg" className="px-8 py-4">
               <Heart className="w-5 h-5 mr-2" />
               Care for Your Team
-            </Button>
+            </ClassicButton>
           </div>
         </div>
       </main>

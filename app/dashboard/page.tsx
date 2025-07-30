@@ -2,23 +2,65 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { AuthManager } from "@/lib/auth"
 import { GameStateManager } from "@/lib/game-state-manager"
 import { LogOut, Heart, Users } from "lucide-react"
+import { ClassicButton, ClassicCard, ClassicHeader } from "@/components/classic-pokemon-ui"
+import { pokemonTheme } from "@/lib/pokemon-theme"
+import { PokemonAssetOptimizer } from "@/lib/pokemon-asset-optimizer"
 
 const generations = [
-  { id: 1, name: "Kanto", region: "Kanto", color: "from-red-400 to-red-600", range: "1-151", icon: "🔥" },
-  { id: 2, name: "Johto", region: "Johto", color: "from-yellow-400 to-orange-500", range: "152-251", icon: "⚡" },
-  { id: 3, name: "Hoenn", region: "Hoenn", color: "from-green-400 to-emerald-600", range: "252-386", icon: "🌿" },
-  { id: 4, name: "Sinnoh", region: "Sinnoh", color: "from-blue-400 to-indigo-600", range: "387-493", icon: "💎" },
-  { id: 5, name: "Unova", region: "Unova", color: "from-purple-400 to-violet-600", range: "494-649", icon: "⚫" },
+  {
+    id: 1,
+    name: "Kanto",
+    region: "Kanto",
+    color: "from-red-400 to-red-600",
+    range: "1-151",
+    icon: "🔥",
+    bgColor: "bg-red-500",
+  },
+  {
+    id: 2,
+    name: "Johto",
+    region: "Johto",
+    color: "from-yellow-400 to-orange-500",
+    range: "152-251",
+    icon: "⚡",
+    bgColor: "bg-yellow-500",
+  },
+  {
+    id: 3,
+    name: "Hoenn",
+    region: "Hoenn",
+    color: "from-green-400 to-emerald-600",
+    range: "252-386",
+    icon: "🌿",
+    bgColor: "bg-green-500",
+  },
+  {
+    id: 4,
+    name: "Sinnoh",
+    region: "Sinnoh",
+    color: "from-blue-400 to-indigo-600",
+    range: "387-493",
+    icon: "💎",
+    bgColor: "bg-blue-500",
+  },
+  {
+    id: 5,
+    name: "Unova",
+    region: "Unova",
+    color: "from-purple-400 to-violet-600",
+    range: "494-649",
+    icon: "⚫",
+    bgColor: "bg-purple-500",
+  },
 ]
 
 export default function Dashboard() {
   const [user, setUser] = useState<any>(null)
   const [adoptedTeam, setAdoptedTeam] = useState<any[]>([])
+  const [assetsLoaded, setAssetsLoaded] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -57,6 +99,12 @@ export default function Dashboard() {
 
     setAdoptedTeam(gameState.getAdoptedTeam())
 
+    // Preload Pokemon assets for better performance
+    const assetOptimizer = PokemonAssetOptimizer.getInstance()
+    assetOptimizer.preloadCriticalAssets([1, 4, 7, 25, 150, 152, 155, 158]).then(() => {
+      setAssetsLoaded(true)
+    })
+
     return () => {
       unsubscribe.data.subscription.unsubscribe()
       gameUnsubscribe()
@@ -83,171 +131,178 @@ export default function Dashboard() {
   if (!user) return null
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-100 via-purple-50 to-pink-100 relative">
-      {/* Pokémon GO style background elements */}
-      <div className="fixed inset-0 opacity-10 pointer-events-none">
-        <div className="absolute top-20 left-20 w-48 h-48 bg-yellow-300 rounded-full animate-pulse"></div>
-        <div className="absolute top-60 right-32 w-36 h-36 bg-pink-300 rounded-full animate-bounce"></div>
-        <div className="absolute bottom-40 left-1/4 w-52 h-52 bg-green-300 rounded-full animate-pulse"></div>
-        <div className="absolute bottom-20 right-1/4 w-40 h-40 bg-purple-300 rounded-full animate-bounce"></div>
-        <div className="absolute top-1/3 left-1/2 w-32 h-32 bg-red-300 rounded-full animate-ping"></div>
+    <div className={`min-h-screen bg-gradient-to-br ${pokemonTheme.colors.backgrounds.primary} relative`}>
+      {/* Classic Pokemon Background Pattern */}
+      <div className="absolute inset-0 opacity-15">
+        <div className="absolute top-20 left-20 w-40 h-40 bg-yellow-400 rounded-full border-4 border-yellow-600 animate-pulse"></div>
+        <div className="absolute top-60 right-32 w-32 h-32 bg-red-400 rounded-full border-4 border-red-600 animate-bounce"></div>
+        <div className="absolute bottom-40 left-1/4 w-48 h-48 bg-green-400 rounded-full border-4 border-green-600 animate-pulse"></div>
+        <div className="absolute bottom-20 right-1/4 w-36 h-36 bg-purple-400 rounded-full border-4 border-purple-600 animate-bounce"></div>
+        <div className="absolute top-1/3 left-1/2 w-28 h-28 bg-pink-400 rounded-full border-4 border-pink-600 animate-ping"></div>
       </div>
 
-      <header className="bg-white/80 backdrop-blur-sm border-b border-gray-200 shadow-sm sticky top-0 z-40">
-        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+      <ClassicHeader
+        title="PokeCare Dashboard"
+        subtitle={`Welcome back, ${user.username || user.email}!`}
+        variant="primary"
+        actions={
           <div className="flex items-center gap-4">
-            <div className="text-4xl">🎮</div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-800">PokeCare</h1>
-              <p className="text-gray-600">Welcome, {user.username || user.email}!</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 bg-white rounded-full px-4 py-2 shadow-md border-2 border-gray-200">
-              <Users className="w-5 h-5 text-blue-500" />
-              <span className="font-bold text-gray-700">Team: {adoptedTeam.length}/6</span>
+            <div className="bg-white rounded-lg px-4 py-2 border-2 border-blue-900 shadow-lg">
+              <div className="flex items-center gap-2">
+                <Users className="w-5 h-5 text-blue-600" />
+                <span className={`${pokemonTheme.typography.button} text-blue-800`}>Team: {adoptedTeam.length}/6</span>
+              </div>
             </div>
             {adoptedTeam.length > 0 && (
               <>
-                <Button
-                  onClick={handleTeamClick}
-                  className="bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow-md"
-                >
+                <ClassicButton onClick={handleTeamClick} variant="accent" size="md">
                   <Users className="w-4 h-4 mr-2" />
                   Team
-                </Button>
-                <Button
-                  onClick={handleCareClick}
-                  className="bg-pink-500 hover:bg-pink-600 text-white rounded-full shadow-md"
-                >
+                </ClassicButton>
+                <ClassicButton onClick={handleCareClick} variant="secondary" size="md">
                   <Heart className="w-4 h-4 mr-2" />
                   Care
-                </Button>
+                </ClassicButton>
               </>
             )}
-            <Button
-              onClick={handleLogout}
-              variant="outline"
-              className="rounded-full border-2 border-gray-300 hover:border-red-400 bg-white shadow-md"
-            >
+            <ClassicButton onClick={handleLogout} variant="danger" size="md">
               <LogOut className="w-4 h-4 mr-2" />
               Logout
-            </Button>
+            </ClassicButton>
           </div>
-        </div>
-      </header>
+        }
+      />
 
       <main className="container mx-auto px-4 py-8 relative z-10">
         <div className="text-center mb-8">
-          <h2 className="text-4xl font-bold text-gray-800 mb-4">Choose a Region</h2>
-          <p className="text-gray-600 text-lg">Explore different generations of Pokémon</p>
+          <ClassicCard variant="accent" className="max-w-2xl mx-auto">
+            <div className="text-center">
+              <h2 className={`${pokemonTheme.typography.heading} text-3xl text-gray-800 mb-4`}>Choose Your Region</h2>
+              <p className="text-gray-700 text-lg">
+                Explore different generations of Pokémon and start your adventure!
+              </p>
+            </div>
+          </ClassicCard>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto mb-8">
           {generations.map((gen) => (
-            <Card
+            <div
               key={gen.id}
-              className="overflow-hidden hover:scale-105 transition-all duration-300 cursor-pointer bg-white shadow-xl border-2 border-gray-200 hover:border-blue-300 hover:shadow-2xl"
+              className="group cursor-pointer transform hover:scale-105 active:scale-95 transition-all duration-300"
+              onClick={() => handleGenerationSelect(gen.id)}
             >
+              {/* Generation Header */}
               <div
-                className={`h-40 bg-gradient-to-br ${gen.color} flex items-center justify-center relative overflow-hidden`}
+                className={`${gen.bgColor} text-white px-4 py-3 rounded-t-lg border-2 border-gray-800 relative overflow-hidden`}
               >
-                <div className="absolute inset-0 bg-white/10"></div>
-                <div className="text-center relative z-10">
-                  <div className="text-4xl mb-2">{gen.icon}</div>
-                  <h3 className="text-3xl font-bold text-white mb-2 drop-shadow-lg">{gen.region}</h3>
-                  <p className="text-white/90 text-sm font-semibold">Generation {gen.id}</p>
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-20 group-hover:animate-pulse"></div>
+                <div className="relative z-10 text-center">
+                  <div className="text-3xl mb-2">{gen.icon}</div>
+                  <h3 className={`${pokemonTheme.typography.heading} text-2xl mb-1`}>{gen.region}</h3>
+                  <p className="text-sm opacity-90">Generation {gen.id}</p>
                 </div>
               </div>
-              <CardHeader>
-                <CardTitle className="text-center text-gray-800">{gen.name}</CardTitle>
-                <CardDescription className="text-center text-gray-600">Pokémon #{gen.range}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button
+
+              {/* Generation Body */}
+              <div className="bg-white border-2 border-gray-800 border-t-0 rounded-b-lg p-4 shadow-lg">
+                <div className="text-center mb-4">
+                  <h4 className={`${pokemonTheme.typography.subheading} text-gray-800 mb-2`}>{gen.name}</h4>
+                  <p className="text-gray-600">Pokémon #{gen.range}</p>
+                </div>
+
+                <ClassicButton
                   onClick={() => handleGenerationSelect(gen.id)}
-                  className={`w-full bg-gradient-to-r ${gen.color} hover:opacity-90 text-white rounded-full font-bold shadow-lg hover:shadow-xl transition-all duration-200`}
+                  variant="primary"
+                  size="md"
+                  className="w-full"
                 >
                   Explore {gen.region}
-                </Button>
-              </CardContent>
-            </Card>
+                </ClassicButton>
+              </div>
+            </div>
           ))}
         </div>
 
         {/* Team Display */}
         {adoptedTeam.length > 0 && (
-          <div className="mt-12">
-            <Card className="bg-white/90 backdrop-blur-sm shadow-xl border-2 border-gray-200">
-              <CardHeader>
-                <CardTitle className="text-center text-gray-800 flex items-center justify-center gap-2">
-                  <Users className="w-6 h-6 text-blue-500" />
-                  Your Pokémon Team ({adoptedTeam.length}/6)
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                  {adoptedTeam.map((pokemon) => (
-                    <div
-                      key={pokemon.id}
-                      className="text-center p-4 bg-gradient-to-br from-blue-50 to-purple-50 rounded-xl border-2 border-gray-200 hover:border-blue-300 transition-all duration-200 hover:shadow-md"
-                    >
-                      <img
-                        src={
-                          pokemon.pokemon_data?.animatedSprite ||
-                          pokemon.pokemon_data?.sprites?.front_default ||
-                          "/placeholder.svg?height=80&width=80" ||
-                          "/placeholder.svg"
-                        }
-                        alt={pokemon.pokemon_name}
-                        className="w-16 h-16 mx-auto mb-2"
-                      />
-                      <h4 className="text-sm font-bold capitalize text-gray-800">{pokemon.pokemon_name}</h4>
-                      <p className="text-xs text-gray-600">#{pokemon.pokemon_id.toString().padStart(3, "0")}</p>
-                      <div className="mt-2 space-y-1">
-                        <div className="flex justify-between text-xs">
-                          <span>❤️</span>
-                          <span>{pokemon.happiness}%</span>
-                        </div>
-                        <div className="flex justify-between text-xs">
-                          <span>💚</span>
-                          <span>{pokemon.health}%</span>
-                        </div>
+          <ClassicCard
+            title={`Your Pokémon Team (${adoptedTeam.length}/6)`}
+            variant="success"
+            className="max-w-6xl mx-auto"
+          >
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+              {adoptedTeam.map((pokemon) => (
+                <div
+                  key={pokemon.id}
+                  className="text-center p-4 bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg border-2 border-gray-400 hover:border-blue-500 transition-all duration-200 hover:shadow-lg group"
+                >
+                  <div className="relative">
+                    <img
+                      src={
+                        pokemon.pokemon_data?.animatedSprite ||
+                        pokemon.pokemon_data?.sprites?.front_default ||
+                        "/placeholder.svg?height=80&width=80" ||
+                        "/placeholder.svg" ||
+                        "/placeholder.svg" ||
+                        "/placeholder.svg" ||
+                        "/placeholder.svg"
+                      }
+                      alt={pokemon.pokemon_name}
+                      className="w-16 h-16 mx-auto mb-2 group-hover:scale-110 transition-transform duration-200"
+                    />
+                    {pokemon.is_mega_evolved && (
+                      <div className="absolute -top-1 -right-1 bg-purple-500 text-white text-xs px-1 rounded-full">
+                        M
                       </div>
+                    )}
+                  </div>
+                  <h4 className={`${pokemonTheme.typography.subheading} text-sm text-gray-800 capitalize`}>
+                    {pokemon.pokemon_name}
+                  </h4>
+                  <p className="text-xs text-gray-600">#{pokemon.pokemon_id.toString().padStart(3, "0")}</p>
+                  <div className="mt-2 space-y-1">
+                    <div className="flex justify-between text-xs">
+                      <span>❤️</span>
+                      <span className={pokemon.happiness < 30 ? "text-red-600 font-bold" : "text-gray-700"}>
+                        {pokemon.happiness}%
+                      </span>
                     </div>
-                  ))}
-                  {/* Empty slots */}
-                  {Array.from({ length: 6 - adoptedTeam.length }).map((_, index) => (
-                    <div
-                      key={`empty-${index}`}
-                      className="text-center p-4 bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center"
-                    >
-                      <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-2">
-                        <span className="text-gray-400 text-2xl">+</span>
-                      </div>
-                      <p className="text-xs text-gray-500">Empty Slot</p>
+                    <div className="flex justify-between text-xs">
+                      <span>💚</span>
+                      <span className={pokemon.health < 30 ? "text-red-600 font-bold" : "text-gray-700"}>
+                        {pokemon.health}%
+                      </span>
                     </div>
-                  ))}
+                  </div>
                 </div>
-                <div className="mt-6 text-center space-x-4">
-                  <Button
-                    onClick={handleTeamClick}
-                    className="bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow-md"
-                  >
-                    <Users className="w-4 h-4 mr-2" />
-                    View Team
-                  </Button>
-                  <Button
-                    onClick={handleCareClick}
-                    className="bg-pink-500 hover:bg-pink-600 text-white rounded-full shadow-md"
-                  >
-                    <Heart className="w-4 h-4 mr-2" />
-                    Care for Team
-                  </Button>
+              ))}
+
+              {/* Empty slots */}
+              {Array.from({ length: 6 - adoptedTeam.length }).map((_, index) => (
+                <div
+                  key={`empty-${index}`}
+                  className="text-center p-4 bg-gray-100 rounded-lg border-2 border-dashed border-gray-400 flex flex-col items-center justify-center"
+                >
+                  <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-2 border-2 border-gray-300">
+                    <span className="text-gray-400 text-2xl">+</span>
+                  </div>
+                  <p className="text-xs text-gray-500 font-medium">Empty Slot</p>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
+              ))}
+            </div>
+
+            <div className="text-center space-x-4">
+              <ClassicButton onClick={handleTeamClick} variant="primary" size="lg">
+                <Users className="w-4 h-4 mr-2" />
+                View Team
+              </ClassicButton>
+              <ClassicButton onClick={handleCareClick} variant="secondary" size="lg">
+                <Heart className="w-4 h-4 mr-2" />
+                Care for Team
+              </ClassicButton>
+            </div>
+          </ClassicCard>
         )}
       </main>
     </div>
