@@ -8,8 +8,8 @@ import { AuthManager } from "@/lib/auth"
 import { Loader2 } from "lucide-react"
 import { ClassicButton, ClassicCard, ClassicHeader } from "@/components/classic-pokemon-ui"
 import { pokemonTheme, pokemonTypeColors } from "@/lib/pokemon-theme"
-import { ReleaseConfirmationDialog } from "@/components/release-confirmation-dialog" // Import the new dialog
-import { useToast } from "@/components/ui/use-toast" // Assuming useToast is available
+import { ReleaseConfirmationDialog } from "@/components/release-confirmation-dialog"
+import { useToast } from "@/components/ui/use-toast"
 
 const typeColors: { [key: string]: string } = {
   normal: "#A8A878",
@@ -38,10 +38,10 @@ export default function TeamPage() {
   const [user, setUser] = useState<any>(null)
   const [releasingPokemon, setReleasingPokemon] = useState<string | null>(null)
   const [releaseError, setReleaseError] = useState<string | null>(null)
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false) // State for dialog visibility
-  const [pokemonToReleaseId, setPokemonToReleaseId] = useState<string | null>(null) // State for pokemon ID to release
-  const [pokemonToReleaseName, setPokemonToReleaseName] = useState<string | null>(null) // State for pokemon name to release
-  const { toast } = useToast() // Initialize useToast
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  const [pokemonToReleaseId, setPokemonToReleaseId] = useState<string | null>(null)
+  const [pokemonToReleaseName, setPokemonToReleaseName] = useState<string | null>(null)
+  const { toast } = useToast()
 
   useEffect(() => {
     const authManager = AuthManager.getInstance()
@@ -88,6 +88,7 @@ export default function TeamPage() {
 
   // Function to open the confirmation dialog
   const openReleaseConfirmDialog = (pokemonId: string, pokemonName: string) => {
+    console.log("[TeamPage] openReleaseConfirmDialog called for ID:", pokemonId, "Name:", pokemonName) // DEBUG LOG
     setPokemonToReleaseId(pokemonId)
     setPokemonToReleaseName(pokemonName)
     setShowConfirmDialog(true)
@@ -95,6 +96,7 @@ export default function TeamPage() {
 
   // Function to close the confirmation dialog
   const closeReleaseConfirmDialog = () => {
+    console.log("[TeamPage] closeReleaseConfirmDialog called.") // DEBUG LOG
     setShowConfirmDialog(false)
     setPokemonToReleaseId(null)
     setPokemonToReleaseName(null)
@@ -102,13 +104,17 @@ export default function TeamPage() {
 
   // Function to handle the actual release after confirmation
   const confirmRelease = async () => {
-    if (!pokemonToReleaseId) return
+    if (!pokemonToReleaseId) {
+      console.error("[TeamPage] No Pokemon ID to release.") // DEBUG LOG
+      return
+    }
 
-    setReleaseError(null) // Clear previous errors
-    setReleasingPokemon(pokemonToReleaseId) // Set loading state for the specific Pokémon
+    setReleaseError(null)
+    setReleasingPokemon(pokemonToReleaseId)
 
     const gameState = GameStateManager.getInstance()
     try {
+      console.log("[TeamPage] Calling releasePokemon for ID:", pokemonToReleaseId) // DEBUG LOG
       const result = await gameState.releasePokemon(pokemonToReleaseId)
       if (!result.success) {
         setReleaseError(result.error || "Failed to release Pokémon. Please try again.")
@@ -126,8 +132,6 @@ export default function TeamPage() {
           className: "bg-green-100 text-green-800 border-green-400",
           action: <CheckCircle className="w-5 h-5 text-green-600" />,
         })
-        // The GameStateManager's subscribe will handle updating the adoptedTeam state
-        // and the useEffect will handle the redirect if the team becomes empty.
       }
     } catch (error: any) {
       console.error("[TeamPage] Error in confirmRelease:", error)
@@ -138,8 +142,9 @@ export default function TeamPage() {
         variant: "destructive",
       })
     } finally {
-      setReleasingPokemon(null) // Always clear the spinner
-      closeReleaseConfirmDialog() // Close the dialog
+      console.log("[TeamPage] Release process finished. Resetting states.") // DEBUG LOG
+      setReleasingPokemon(null)
+      closeReleaseConfirmDialog()
     }
   }
 
@@ -197,167 +202,176 @@ export default function TeamPage() {
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {adoptedTeam.map((pokemon) => (
-              <ClassicCard key={pokemon.id} variant="primary" className="hover:shadow-2xl transition-all duration-300">
-                <div className="text-center relative">
-                  <div className="absolute top-2 right-2">
-                    <button
-                      onClick={() => openReleaseConfirmDialog(pokemon.id, pokemon.pokemon_name)} // Open custom dialog
-                      disabled={releasingPokemon === pokemon.id}
-                      className="text-red-500 border-2 border-red-400 hover:bg-red-50 rounded-lg p-1 active:scale-95 transition-all duration-200 disabled:opacity-50"
-                    >
-                      {releasingPokemon === pokemon.id ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="w-4 h-4" />
-                      )}
-                    </button>
-                  </div>
-
-                  <div className="relative mb-4">
-                    <div
-                      className={`w-32 h-32 mx-auto rounded-full flex items-center justify-center border-4 ${
-                        pokemon.is_mega_evolved
-                          ? "bg-gradient-to-br from-purple-200 to-pink-200 border-purple-600 shadow-2xl"
-                          : "bg-gradient-to-br from-blue-100 to-purple-100 border-blue-600 shadow-lg"
-                      }`}
-                    >
-                      <img
-                        src={
-                          pokemon.pokemon_data?.animatedSprite ||
-                          pokemon.pokemon_data?.sprites?.front_default ||
-                          "/placeholder.svg?height=100&width=100" ||
-                          "/placeholder.svg"
-                        }
-                        alt={pokemon.pokemon_name}
-                        className="w-24 h-24 object-contain"
-                      />
+            {adoptedTeam.map((pokemon) => {
+              const isDisabled = releasingPokemon === pokemon.id // Calculate disabled state
+              console.log(
+                `[TeamPage] Pokemon ID: ${pokemon.id}, releasingPokemon: ${releasingPokemon}, isDisabled: ${isDisabled}`,
+              ) // DEBUG LOG
+              return (
+                <ClassicCard
+                  key={pokemon.id}
+                  variant="primary"
+                  className="hover:shadow-2xl transition-all duration-300"
+                >
+                  <div className="text-center relative">
+                    <div className="absolute top-2 right-2">
+                      <button
+                        onClick={() => {
+                          console.log("[TeamPage] Delete button clicked for Pokemon ID:", pokemon.id) // DEBUG LOG
+                          openReleaseConfirmDialog(pokemon.id, pokemon.pokemon_name)
+                        }}
+                        disabled={isDisabled} // Use the calculated disabled state
+                        className="text-red-500 border-2 border-red-400 hover:bg-red-50 rounded-lg p-1 active:scale-95 transition-all duration-200 disabled:opacity-50"
+                      >
+                        {isDisabled ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                      </button>
                     </div>
-                    {pokemon.is_mega_evolved && (
-                      <div className="absolute -top-2 -left-2">
-                        <div className="bg-purple-600 text-white px-2 py-1 rounded-lg text-xs font-bold border-2 border-purple-800">
-                          MEGA
+
+                    <div className="relative mb-4">
+                      <div
+                        className={`w-32 h-32 mx-auto rounded-full flex items-center justify-center border-4 ${
+                          pokemon.is_mega_evolved
+                            ? "bg-gradient-to-br from-purple-200 to-pink-200 border-purple-600 shadow-2xl"
+                            : "bg-gradient-to-br from-blue-100 to-purple-100 border-blue-600 shadow-lg"
+                        }`}
+                      >
+                        <img
+                          src={
+                            pokemon.pokemon_data?.animatedSprite ||
+                            pokemon.pokemon_data?.sprites?.front_default ||
+                            "/placeholder.svg?height=100&width=100" ||
+                            "/placeholder.svg"
+                          }
+                          alt={pokemon.pokemon_name}
+                          className="w-24 h-24 object-contain"
+                        />
+                      </div>
+                      {pokemon.is_mega_evolved && (
+                        <div className="absolute -top-2 -left-2">
+                          <div className="bg-purple-600 text-white px-2 py-1 rounded-lg text-xs font-bold border-2 border-purple-800">
+                            MEGA
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <h3 className={`${pokemonTheme.typography.heading} text-xl capitalize text-gray-800 mb-2`}>
+                      {pokemon.pokemon_name}
+                    </h3>
+                    <p className="text-gray-600 mb-3">#{pokemon.pokemon_id.toString().padStart(3, "0")}</p>
+
+                    <div className="flex justify-center gap-2 mb-4">
+                      {pokemon.pokemon_data?.types?.map((type: any) => (
+                        <div
+                          key={type.type.name}
+                          className="text-white text-sm font-bold px-2 py-1 rounded-lg border-2 border-gray-800"
+                          style={{ backgroundColor: pokemonTypeColors[type.type.name] || "#68A090" }}
+                        >
+                          {type.type.name.toUpperCase()}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Stats Display */}
+                    <div className="space-y-3">
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-sm font-medium flex items-center gap-1">
+                            <Heart className="w-4 h-4 text-red-500" />
+                            Happiness
+                          </span>
+                          <span className="text-sm font-bold">{pokemon.happiness}%</span>
+                        </div>
+                        <div className="bg-gray-300 rounded-full h-2 border border-gray-400 overflow-hidden">
+                          <div
+                            className="h-full bg-red-500 transition-all duration-500"
+                            style={{ width: `${pokemon.happiness}%` }}
+                          ></div>
                         </div>
                       </div>
-                    )}
-                  </div>
 
-                  <h3 className={`${pokemonTheme.typography.heading} text-xl capitalize text-gray-800 mb-2`}>
-                    {pokemon.pokemon_name}
-                  </h3>
-                  <p className="text-gray-600 mb-3">#{pokemon.pokemon_id.toString().padStart(3, "0")}</p>
-
-                  <div className="flex justify-center gap-2 mb-4">
-                    {pokemon.pokemon_data?.types?.map((type: any) => (
-                      <div
-                        key={type.type.name}
-                        className="text-white text-sm font-bold px-2 py-1 rounded-lg border-2 border-gray-800"
-                        style={{ backgroundColor: pokemonTypeColors[type.type.name] || "#68A090" }}
-                      >
-                        {type.type.name.toUpperCase()}
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-sm font-medium flex items-center gap-1">
+                            <Shield className="w-4 h-4 text-green-500" />
+                            Health
+                          </span>
+                          <span className="text-sm font-bold">{pokemon.health}%</span>
+                        </div>
+                        <div className="bg-gray-300 rounded-full h-2 border border-gray-400 overflow-hidden">
+                          <div
+                            className="h-full bg-green-500 transition-all duration-500"
+                            style={{ width: `${pokemon.health}%` }}
+                          ></div>
+                        </div>
                       </div>
-                    ))}
-                  </div>
 
-                  {/* Stats Display */}
-                  <div className="space-y-3">
-                    <div>
-                      <div className="flex justify-between items-center mb-1">
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-sm font-medium flex items-center gap-1">
+                            <Zap className="w-4 h-4 text-yellow-500" />
+                            Energy
+                          </span>
+                          <span className="text-sm font-bold">{pokemon.energy}%</span>
+                        </div>
+                        <div className="bg-gray-300 rounded-full h-2 border border-gray-400 overflow-hidden">
+                          <div
+                            className="h-full bg-yellow-500 transition-all duration-500"
+                            style={{ width: `${pokemon.energy}%` }}
+                          ></div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-sm font-medium flex items-center gap-1">
+                            <Apple className="w-4 h-4 text-blue-500" />
+                            Hunger
+                          </span>
+                          <span className="text-sm font-bold">{pokemon.hunger}%</span>
+                        </div>
+                        <div className="bg-gray-300 rounded-full h-2 border border-gray-400 overflow-hidden">
+                          <div
+                            className="h-full bg-blue-500 transition-all duration-500"
+                            style={{ width: `${pokemon.hunger}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Evolution Progress */}
+                    <div className="mt-4 bg-gradient-to-r from-purple-100 to-pink-100 border-2 border-purple-400 rounded-lg p-3">
+                      <div className="flex justify-between items-center mb-2">
                         <span className="text-sm font-medium flex items-center gap-1">
-                          <Heart className="w-4 h-4 text-red-500" />
-                          Happiness
+                          <Star className="w-4 h-4 text-purple-600" />
+                          Evolution
                         </span>
-                        <span className="text-sm font-bold">{pokemon.happiness}%</span>
+                        <span className="text-sm font-bold">
+                          {GameStateManager.getInstance().getEvolutionProgress(pokemon.id).toFixed(1)}%
+                        </span>
                       </div>
                       <div className="bg-gray-300 rounded-full h-2 border border-gray-400 overflow-hidden">
                         <div
-                          className="h-full bg-red-500 transition-all duration-500"
-                          style={{ width: `${pokemon.happiness}%` }}
+                          className="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-500"
+                          style={{ width: `${GameStateManager.getInstance().getEvolutionProgress(pokemon.id)}%` }}
                         ></div>
                       </div>
+                      <p className="text-xs text-purple-700 mt-1 font-medium">Points: {pokemon.activity_points}</p>
                     </div>
 
-                    <div>
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="text-sm font-medium flex items-center gap-1">
-                          <Shield className="w-4 h-4 text-green-500" />
-                          Health
-                        </span>
-                        <span className="text-sm font-bold">{pokemon.health}%</span>
+                    {/* Stats Summary */}
+                    <div className="grid grid-cols-2 gap-2 mt-4 text-xs text-gray-600">
+                      <div className="bg-gray-100 rounded p-2 border border-gray-300">
+                        <span className="font-medium">Actions: {pokemon.total_actions}</span>
                       </div>
-                      <div className="bg-gray-300 rounded-full h-2 border border-gray-400 overflow-hidden">
-                        <div
-                          className="h-full bg-green-500 transition-all duration-500"
-                          style={{ width: `${pokemon.health}%` }}
-                        ></div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="text-sm font-medium flex items-center gap-1">
-                          <Zap className="w-4 h-4 text-yellow-500" />
-                          Energy
-                        </span>
-                        <span className="text-sm font-bold">{pokemon.energy}%</span>
-                      </div>
-                      <div className="bg-gray-300 rounded-full h-2 border border-gray-400 overflow-hidden">
-                        <div
-                          className="h-full bg-yellow-500 transition-all duration-500"
-                          style={{ width: `${pokemon.energy}%` }}
-                        ></div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="text-sm font-medium flex items-center gap-1">
-                          <Apple className="w-4 h-4 text-blue-500" />
-                          Hunger
-                        </span>
-                        <span className="text-sm font-bold">{pokemon.hunger}%</span>
-                      </div>
-                      <div className="bg-gray-300 rounded-full h-2 border border-gray-400 overflow-hidden">
-                        <div
-                          className="h-full bg-blue-500 transition-all duration-500"
-                          style={{ width: `${pokemon.hunger}%` }}
-                        ></div>
+                      <div className="bg-gray-100 rounded p-2 border border-gray-300">
+                        <span className="font-medium">Level: {Math.floor(pokemon.activity_points / 50) + 1}</span>
                       </div>
                     </div>
                   </div>
-
-                  {/* Evolution Progress */}
-                  <div className="mt-4 bg-gradient-to-r from-purple-100 to-pink-100 border-2 border-purple-400 rounded-lg p-3">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-medium flex items-center gap-1">
-                        <Star className="w-4 h-4 text-purple-600" />
-                        Evolution
-                      </span>
-                      <span className="text-sm font-bold">
-                        {GameStateManager.getInstance().getEvolutionProgress(pokemon.id).toFixed(1)}%
-                      </span>
-                    </div>
-                    <div className="bg-gray-300 rounded-full h-2 border border-gray-400 overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-purple-500 to-pink-500 transition-all duration-500"
-                        style={{ width: `${GameStateManager.getInstance().getEvolutionProgress(pokemon.id)}%` }}
-                      ></div>
-                    </div>
-                    <p className="text-xs text-purple-700 mt-1 font-medium">Points: {pokemon.activity_points}</p>
-                  </div>
-
-                  {/* Stats Summary */}
-                  <div className="grid grid-cols-2 gap-2 mt-4 text-xs text-gray-600">
-                    <div className="bg-gray-100 rounded p-2 border border-gray-300">
-                      <span className="font-medium">Actions: {pokemon.total_actions}</span>
-                    </div>
-                    <div className="bg-gray-100 rounded p-2 border border-gray-300">
-                      <span className="font-medium">Level: {Math.floor(pokemon.activity_points / 50) + 1}</span>
-                    </div>
-                  </div>
-                </div>
-              </ClassicCard>
-            ))}
+                </ClassicCard>
+              )
+            })}
           </div>
 
           {/* Care Button */}
