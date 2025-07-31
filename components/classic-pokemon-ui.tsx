@@ -42,14 +42,14 @@ export function ClassicButton({
       onClick={onClick}
       disabled={disabled}
       className={`
-        ${pokemonTheme.typography.button}
-        ${variantStyles[variant]}
-        ${sizeStyles[size]}
-        border-2 rounded-lg shadow-xl
-        ${pokemonTheme.animations.hover}
-        disabled:opacity-50 disabled:cursor-not-allowed
-        ${className}
-      `}
+      ${pokemonTheme.typography.button}
+      ${variantStyles[variant]}
+      ${sizeStyles[size]}
+      border-2 rounded-lg shadow-xl
+      ${pokemonTheme.animations.hover}
+      disabled:opacity-50 disabled:cursor-not-allowed
+      ${className}
+    `}
     >
       {children}
     </button>
@@ -105,7 +105,7 @@ interface ClassicHeaderProps {
   title: string
   subtitle?: string
   actions?: React.ReactNode
-  variant?: "primary" | "secondary" | "accent" | "success"
+  variant?: "primary" | "secondary" | "accent" | "success" | "danger"
 }
 
 export function ClassicHeader({ title, subtitle, actions, variant = "primary" }: ClassicHeaderProps) {
@@ -114,6 +114,7 @@ export function ClassicHeader({ title, subtitle, actions, variant = "primary" }:
     secondary: "bg-gradient-to-r from-red-600 to-red-800 border-red-900",
     accent: "bg-gradient-to-r from-yellow-600 to-yellow-800 border-yellow-900",
     success: "bg-gradient-to-r from-green-600 to-green-800 border-green-900",
+    danger: "bg-gradient-to-r from-red-600 to-red-800 border-red-900",
   }
 
   return (

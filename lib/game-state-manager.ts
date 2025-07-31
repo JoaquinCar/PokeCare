@@ -465,30 +465,30 @@ export class GameStateManager {
     switch (foodType) {
       case "berry":
         if (pokemon.hunger >= 85) {
-          return `${name} is completely satisfied! Their hunger is at ${pokemon.hunger}% - they don't need berries right now. 🍓✨`
+          return `${name} está completamente satisfecho! Su hambre está al ${pokemon.hunger}% - no necesita bayas ahora mismo. 🍓✨`
         }
-        return `${name} would love a berry! Their hunger is at ${pokemon.hunger}%.`
+        return `${name} le encantaría una baya! Su hambre está al ${pokemon.hunger}%.`
 
       case "potion":
         if (pokemon.health >= 85 && pokemon.energy >= 85) {
-          return `${name} is in perfect condition! Health: ${pokemon.health}%, Energy: ${pokemon.energy}% - no potion needed! 🧪✨`
+          return `${name} está en perfectas condiciones! Salud: ${pokemon.health}%, Energía: ${pokemon.energy}% - ¡no necesita poción! 🧪✨`
         }
         if (pokemon.health < 85 && pokemon.energy >= 85) {
-          return `${name} could use healing! Health: ${pokemon.health}%, but energy is good at ${pokemon.energy}%.`
+          return `${name} podría usar curación! Salud: ${pokemon.health}%, pero la energía está bien al ${pokemon.energy}%.`
         }
         if (pokemon.health >= 85 && pokemon.energy < 85) {
-          return `${name} needs energy! Energy: ${pokemon.energy}%, but health is good at ${pokemon.health}%.`
+          return `${name} necesita energía! Energía: ${pokemon.energy}%, pero la salud está bien al ${pokemon.health}%.`
         }
-        return `${name} needs both healing and energy! Health: ${pokemon.health}%, Energy: ${pokemon.energy}%.`
+        return `${name} necesita tanto curación como energía! Salud: ${pokemon.health}%, Energía: ${pokemon.energy}%.`
 
       case "candy":
         if (pokemon.happiness >= 85) {
-          return `${name} is overjoyed! Their happiness is at ${pokemon.happiness}% - they're too happy for more candy right now! 🍬✨`
+          return `${name} está eufórico! Su felicidad está al ${pokemon.happiness}% - ¡está demasiado feliz para más caramelos ahora mismo! 🍬✨`
         }
-        return `${name} would be thrilled with candy! Their happiness is at ${pokemon.happiness}%.`
+        return `${name} estaría encantado con un caramelo! Su felicidad está al ${pokemon.happiness}%.`
 
       default:
-        return "Unknown food type"
+        return "Tipo de comida desconocido"
     }
   }
 
