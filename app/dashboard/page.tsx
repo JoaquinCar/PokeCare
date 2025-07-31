@@ -99,7 +99,7 @@ export default function Dashboard() {
 
     setAdoptedTeam(gameState.getAdoptedTeam())
 
-    // Preload Pokemon assets for better performance
+    // Preload Pokemon assets for better performance (moved from app/page.tsx)
     const assetOptimizer = PokemonAssetOptimizer.getInstance()
     assetOptimizer.preloadCriticalAssets([1, 4, 7, 25, 150, 152, 155, 158]).then(() => {
       setAssetsLoaded(true)
@@ -243,6 +243,7 @@ export default function Dashboard() {
                         pokemon.pokemon_data?.animatedSprite ||
                         pokemon.pokemon_data?.sprites?.front_default ||
                         "/placeholder.svg?height=80&width=80" ||
+                        "/placeholder.svg" ||
                         "/placeholder.svg" ||
                         "/placeholder.svg" ||
                         "/placeholder.svg" ||

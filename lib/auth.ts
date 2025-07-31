@@ -4,7 +4,7 @@ import type { User } from "@supabase/supabase-js"
 export class AuthManager {
   private static instance: AuthManager
   private currentUser: User | null = null
-  private initialized = false
+  private initialized = false // Tracks if initial session check is done
 
   private constructor() {
     // Don't initialize immediately, wait for first method call
@@ -17,11 +17,13 @@ export class AuthManager {
     return AuthManager.instance
   }
 
-  private async initializeAuth(): Promise<void> {
-    if (this.initialized) return
+  // New method to quickly get initial session without blocking on profile creation
+  public async getInitialSession(): Promise<{ user: User | null; error: string | null }> {
+    if (this.initialized) {
+      return { user: this.currentUser, error: null }
+    }
 
     try {
-      // Get current session instead of user to avoid "Auth session missing" error
       const {
         data: { session },
         error,
@@ -30,20 +32,17 @@ export class AuthManager {
       if (error) {
         console.warn("Auth session error (this is normal for new users):", error.message)
         this.currentUser = null
-      } else {
-        this.currentUser = session?.user || null
-
-        // Ensure user profile exists when initializing
-        if (this.currentUser) {
-          await this.ensureUserProfile(this.currentUser, this.currentUser.email || "")
-        }
+        return { user: null, error: error.message }
       }
 
+      this.currentUser = session?.user || null
       this.initialized = true
-    } catch (error) {
-      console.warn("Failed to initialize auth (this is normal for new users):", error)
+      return { user: this.currentUser, error: null }
+    } catch (error: any) {
+      console.warn("Failed to get initial session:", error)
       this.currentUser = null
       this.initialized = true
+      return { user: null, error: error.message || "An unexpected error occurred." }
     }
   }
 
@@ -52,7 +51,8 @@ export class AuthManager {
     password: string,
     username: string,
   ): Promise<{ success: boolean; error?: string }> {
-    await this.initializeAuth()
+    // No need to call initializeAuth here, getInitialSession handles it for app/page.tsx
+    // and onAuthStateChange will handle subsequent profile creation.
 
     // --- START: Added explicit validation before Supabase call ---
     if (!email || email.trim() === "") {
@@ -110,9 +110,9 @@ export class AuthManager {
       }
 
       if (data.user) {
-        // Always try to create profile for new users
-        await this.ensureUserProfile(data.user, email, username.trim())
+        // Ensure user profile exists after successful signup (async, non-blocking)
         this.currentUser = data.user
+        this.ensureUserProfile(data.user, email, username.trim()).catch(console.error)
         return { success: true }
       }
 
@@ -136,7 +136,8 @@ export class AuthManager {
   }
 
   public async signIn(email: string, password: string): Promise<{ success: boolean; error?: string }> {
-    await this.initializeAuth()
+    // No need to call initializeAuth here, getInitialSession handles it for app/page.tsx
+    // and onAuthStateChange will handle subsequent profile creation.
 
     // --- START: Added explicit validation before Supabase call ---
     if (!email || email.trim() === "") {
@@ -168,10 +169,10 @@ export class AuthManager {
         return { success: false, error: error.message || "Sign in failed. Please try again." }
       }
 
-      // Always ensure user profile exists on sign in
+      // Ensure user profile exists after successful sign in (async, non-blocking)
       if (data.user) {
-        await this.ensureUserProfile(data.user, email)
         this.currentUser = data.user
+        this.ensureUserProfile(data.user, email).catch(console.error)
       }
 
       return { success: true }
@@ -270,10 +271,12 @@ export class AuthManager {
     try {
       await supabase.auth.signOut()
       this.currentUser = null
+      this.initialized = false // Reset initialization state on sign out
     } catch (error) {
       console.error("Sign out error:", error)
       // Force clear local state even if API call fails
       this.currentUser = null
+      this.initialized = false
     }
   }
 
@@ -282,7 +285,8 @@ export class AuthManager {
   }
 
   public async getUserProfile(): Promise<any> {
-    await this.initializeAuth()
+    // Ensure initial session check is done before trying to get profile
+    await this.getInitialSession()
 
     if (!this.currentUser) return null
 
@@ -327,18 +331,17 @@ export class AuthManager {
   }
 
   public onAuthStateChange(callback: (user: User | null) => void) {
-    // Initialize auth state first
-    this.initializeAuth().then(() => {
-      // Call callback with current user immediately
-      callback(this.currentUser)
+    // Perform initial session check and then subscribe
+    this.getInitialSession().then(() => {
+      callback(this.currentUser) // Call callback with current user immediately
     })
 
     return supabase.auth.onAuthStateChange(async (event, session) => {
       this.currentUser = session?.user || null
 
-      // Handle email confirmation and ensure profile exists
+      // Handle email confirmation and ensure profile exists asynchronously
       if (event === "SIGNED_IN" && session?.user) {
-        await this.ensureUserProfile(session.user, session.user.email || "")
+        this.ensureUserProfile(session.user, session.user.email || "").catch(console.error)
       }
 
       callback(this.currentUser)

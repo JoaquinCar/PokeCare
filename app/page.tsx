@@ -10,7 +10,7 @@ import { AuthManager } from "@/lib/auth"
 import { CheckCircle, AlertCircle, Wifi, WifiOff, Loader2 } from "lucide-react"
 import { ClassicButton, ClassicCard } from "@/components/classic-pokemon-ui"
 import { pokemonTheme } from "@/lib/pokemon-theme"
-import { PokemonAssetOptimizer } from "@/lib/pokemon-asset-optimizer"
+// import { PokemonAssetOptimizer } from "@/lib/pokemon-asset-optimizer" // Removed from here
 
 export default function LoginPage() {
   const [loginData, setLoginData] = useState({ email: "", password: "" })
@@ -19,14 +19,14 @@ export default function LoginPage() {
   const [success, setSuccess] = useState("")
   const [loading, setLoading] = useState(false)
   const [isOnline, setIsOnline] = useState(true)
-  const [authInitialized, setAuthInitialized] = useState(false)
+  const [authInitialized, setAuthInitialized] = useState(false) // True when initial session check is done
   const router = useRouter()
   const searchParams = useSearchParams()
 
   useEffect(() => {
-    // Preload critical Pokemon assets
-    const assetOptimizer = PokemonAssetOptimizer.getInstance()
-    assetOptimizer.preloadCriticalAssets([1, 4, 7, 25, 150]) // Starter Pokemon + Pikachu + Mewtwo
+    // No longer preloading critical assets on the login page
+    // const assetOptimizer = PokemonAssetOptimizer.getInstance()
+    // assetOptimizer.preloadCriticalAssets([1, 4, 7, 25, 150]) // Starter Pokemon + Pikachu + Mewtwo
 
     // Check online status
     const handleOnline = () => setIsOnline(true)
@@ -48,11 +48,19 @@ export default function LoginPage() {
       setSuccess("Email confirmed successfully! You can now sign in.")
     }
 
-    // Initialize auth state
+    // Initialize auth state quickly
     const authManager = AuthManager.getInstance()
-    const unsubscribe = authManager.onAuthStateChange((user) => {
+    authManager.getInitialSession().then(({ user }) => {
       setAuthInitialized(true)
       if (user) {
+        router.push("/dashboard")
+      }
+    })
+
+    // Subscribe to auth state changes for real-time updates (e.g., after email confirmation)
+    const unsubscribe = authManager.onAuthStateChange((user) => {
+      if (user && user.email_confirmed_at) {
+        // Only redirect if email is confirmed
         router.push("/dashboard")
       }
     })
@@ -82,7 +90,7 @@ export default function LoginPage() {
       const result = await AuthManager.getInstance().signIn(loginData.email, loginData.password)
 
       if (result.success) {
-        router.push("/dashboard")
+        // Redirection handled by onAuthStateChange if email is confirmed
       } else {
         setError(result.error || "Login failed")
       }
@@ -144,7 +152,7 @@ export default function LoginPage() {
             "Registration successful! Please check your email and click the confirmation link to complete your account setup.",
           )
         } else {
-          router.push("/dashboard")
+          router.push("/dashboard") // Should only happen if email auto-confirms (e.g., local dev)
         }
       } else {
         setError(result.error || "Registration failed")
