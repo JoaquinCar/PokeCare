@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ArrowLeft, Heart, Zap, Apple, Trash2, Star, Users, Shield, AlertCircle } from "lucide-react"
+import { ArrowLeft, Heart, Zap, Apple, Trash2, Star, Users, Shield, AlertCircle, CheckCircle } from "lucide-react"
 import { GameStateManager } from "@/lib/game-state-manager"
 import { AuthManager } from "@/lib/auth"
-import { Loader2 } from "lucide-react" // Import Loader2
+import { Loader2 } from "lucide-react"
 import { ClassicButton, ClassicCard, ClassicHeader } from "@/components/classic-pokemon-ui"
 import { pokemonTheme, pokemonTypeColors } from "@/lib/pokemon-theme"
+import { ReleaseConfirmationDialog } from "@/components/release-confirmation-dialog" // Import the new dialog
+import { useToast } from "@/components/ui/use-toast" // Assuming useToast is available
 
 const typeColors: { [key: string]: string } = {
   normal: "#A8A878",
@@ -35,7 +37,11 @@ export default function TeamPage() {
   const [adoptedTeam, setAdoptedTeam] = useState<any[]>([])
   const [user, setUser] = useState<any>(null)
   const [releasingPokemon, setReleasingPokemon] = useState<string | null>(null)
-  const [releaseError, setReleaseError] = useState<string | null>(null) // New state for error message
+  const [releaseError, setReleaseError] = useState<string | null>(null)
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false) // State for dialog visibility
+  const [pokemonToReleaseId, setPokemonToReleaseId] = useState<string | null>(null) // State for pokemon ID to release
+  const [pokemonToReleaseName, setPokemonToReleaseName] = useState<string | null>(null) // State for pokemon name to release
+  const { toast } = useToast() // Initialize useToast
 
   useEffect(() => {
     const authManager = AuthManager.getInstance()
@@ -80,29 +86,60 @@ export default function TeamPage() {
     router.push("/care")
   }
 
-  const handleRelease = async (pokemonTeamId: string) => {
-    setReleaseError(null) // Clear previous errors
-    console.log(`[TeamPage] Attempting to release Pokemon with team ID: ${pokemonTeamId}`) // Log the ID being passed
+  // Function to open the confirmation dialog
+  const openReleaseConfirmDialog = (pokemonId: string, pokemonName: string) => {
+    setPokemonToReleaseId(pokemonId)
+    setPokemonToReleaseName(pokemonName)
+    setShowConfirmDialog(true)
+  }
 
-    if (confirm("Are you sure you want to release this Pokémon? This action cannot be undone.")) {
-      setReleasingPokemon(pokemonTeamId)
-      const gameState = GameStateManager.getInstance()
-      try {
-        const result = await gameState.releasePokemon(pokemonTeamId)
-        if (!result.success) {
-          setReleaseError(result.error || "Failed to release Pokémon. Please try again.")
-          console.error("[TeamPage] Release failed:", result.error)
-        } else {
-          console.log("[TeamPage] Pokemon successfully released.")
-          // The GameStateManager's subscribe will handle updating the adoptedTeam state
-          // and the useEffect will handle the redirect if the team becomes empty.
-        }
-      } catch (error: any) {
-        console.error("[TeamPage] Error in handleRelease:", error)
-        setReleaseError(error.message || "An unexpected error occurred while releasing Pokémon.")
-      } finally {
-        setReleasingPokemon(null) // Always clear the spinner
+  // Function to close the confirmation dialog
+  const closeReleaseConfirmDialog = () => {
+    setShowConfirmDialog(false)
+    setPokemonToReleaseId(null)
+    setPokemonToReleaseName(null)
+  }
+
+  // Function to handle the actual release after confirmation
+  const confirmRelease = async () => {
+    if (!pokemonToReleaseId) return
+
+    setReleaseError(null) // Clear previous errors
+    setReleasingPokemon(pokemonToReleaseId) // Set loading state for the specific Pokémon
+
+    const gameState = GameStateManager.getInstance()
+    try {
+      const result = await gameState.releasePokemon(pokemonToReleaseId)
+      if (!result.success) {
+        setReleaseError(result.error || "Failed to release Pokémon. Please try again.")
+        console.error("[TeamPage] Release failed:", result.error)
+        toast({
+          title: "Error al liberar Pokémon",
+          description: result.error || "Ocurrió un error inesperado.",
+          variant: "destructive",
+        })
+      } else {
+        console.log("[TeamPage] Pokémon successfully released.")
+        toast({
+          title: "Pokémon Liberado",
+          description: `${pokemonToReleaseName} ha sido liberado exitosamente.`,
+          className: "bg-green-100 text-green-800 border-green-400",
+          action: <CheckCircle className="w-5 h-5 text-green-600" />,
+        })
+        // The GameStateManager's subscribe will handle updating the adoptedTeam state
+        // and the useEffect will handle the redirect if the team becomes empty.
       }
+    } catch (error: any) {
+      console.error("[TeamPage] Error in confirmRelease:", error)
+      setReleaseError(error.message || "An unexpected error occurred while releasing Pokémon.")
+      toast({
+        title: "Error al liberar Pokémon",
+        description: error.message || "Ocurrió un error inesperado.",
+        variant: "destructive",
+      })
+    } finally {
+      setReleasingPokemon(null) // Always clear the spinner
+      closeReleaseConfirmDialog() // Close the dialog
     }
   }
 
@@ -165,7 +202,7 @@ export default function TeamPage() {
                 <div className="text-center relative">
                   <div className="absolute top-2 right-2">
                     <button
-                      onClick={() => handleRelease(pokemon.id)}
+                      onClick={() => openReleaseConfirmDialog(pokemon.id, pokemon.pokemon_name)} // Open custom dialog
                       disabled={releasingPokemon === pokemon.id}
                       className="text-red-500 border-2 border-red-400 hover:bg-red-50 rounded-lg p-1 active:scale-95 transition-all duration-200 disabled:opacity-50"
                     >
@@ -332,6 +369,17 @@ export default function TeamPage() {
           </div>
         </div>
       </main>
+
+      {/* Custom Release Confirmation Dialog */}
+      {showConfirmDialog && pokemonToReleaseId && pokemonToReleaseName && (
+        <ReleaseConfirmationDialog
+          isOpen={showConfirmDialog}
+          onClose={closeReleaseConfirmDialog}
+          onConfirm={confirmRelease}
+          pokemonName={pokemonToReleaseName}
+          isReleasing={releasingPokemon === pokemonToReleaseId}
+        />
+      )}
     </div>
   )
 }
